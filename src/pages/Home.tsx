@@ -11,47 +11,78 @@ import {
   MessageCircle,
   User,
   Activity,
-  Scan
+  Scan,
+  FileText,
+  Stethoscope,
+  Phone
 } from 'lucide-react';
-import SymptomScanner from '../components/SymptomScanner';
+import ChatbotModal from '../components/ChatbotModal';
+import BookAppointmentModal from '../components/BookAppointmentModal';
+import HealthReportsModal from '../components/HealthReportsModal';
+import EmergencyModal from '../components/EmergencyModal';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [showScanner, setShowScanner] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [showBooking, setShowBooking] = useState(false);
+  const [showReports, setShowReports] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
 
   const features = [
     {
       icon: Calendar,
       title: t('bookAppointment'),
-      description: 'Schedule appointments with healthcare professionals',
+      description: 'Schedule appointments with certified doctors',
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600'
+      textColor: 'text-blue-600',
+      action: () => setShowBooking(true)
     },
     {
-      icon: Scan,
-      title: t('scanSymptoms'),
-      description: 'AI-powered symptom analysis from photos',
+      icon: Stethoscope,
+      title: 'Consult a Doctor',
+      description: 'Get professional medical consultation online',
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'bg-indigo-50',
-      textColor: 'text-indigo-600'
+      textColor: 'text-indigo-600',
+      action: () => setShowChatbot(true)
     },
     {
       icon: AlertTriangle,
       title: t('emergencySOS'),
-      description: 'Get immediate emergency assistance',
+      description: 'Emergency contacts and immediate assistance',
       color: 'from-red-500 to-red-600',
       bgColor: 'bg-red-50',
-      textColor: 'text-red-600'
+      textColor: 'text-red-600',
+      action: () => setShowEmergency(true)
+    },
+    {
+      icon: FileText,
+      title: 'Health Reports',
+      description: 'Upload and manage your medical documents',
+      color: 'from-pink-500 to-pink-600',
+      bgColor: 'bg-pink-50',
+      textColor: 'text-pink-600',
+      action: () => setShowReports(true)
+    },
+    {
+      icon: MessageCircle,
+      title: 'HealthBot Support',
+      description: 'AI-powered health assistant for instant help',
+      color: 'from-teal-500 to-teal-600',
+      bgColor: 'bg-teal-50',
+      textColor: 'text-teal-600',
+      action: () => setShowChatbot(true)
     },
     {
       icon: Heart,
       title: t('healthCheckup'),
       description: 'Monitor your vital signs and health metrics',
-      color: 'from-pink-500 to-pink-600',
-      bgColor: 'bg-pink-50',
-      textColor: 'text-pink-600'
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'bg-purple-50',
+      textColor: 'text-purple-600',
+      action: () => alert('Health checkup feature coming soon!')
     },
     {
       icon: Apple,
@@ -59,34 +90,19 @@ const Home: React.FC = () => {
       description: 'Get personalized nutrition recommendations',
       color: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
-      textColor: 'text-green-600'
+      textColor: 'text-green-600',
+      action: () => alert('Diet suggestions feature coming soon!')
     },
     {
       icon: Dumbbell,
       title: t('exercisePlans'),
       description: 'Access customized workout routines',
-      color: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
-    },
-    {
-      icon: Brain,
-      title: t('mentalHealth'),
-      description: 'Support for anxiety, depression, and wellness',
-      color: 'from-teal-500 to-teal-600',
-      bgColor: 'bg-teal-50',
-      textColor: 'text-teal-600'
+      color: 'from-orange-500 to-orange-600',
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-600',
+      action: () => alert('Exercise plans feature coming soon!')
     }
   ];
-
-  const handleFeatureClick = (featureTitle: string) => {
-    console.log(`Clicked: ${featureTitle}`);
-    if (featureTitle === t('scanSymptoms')) {
-      setShowScanner(true);
-      return;
-    }
-    // TODO: Navigate to specific feature pages
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
@@ -148,7 +164,7 @@ const Home: React.FC = () => {
           {features.map((feature, index) => (
             <div
               key={index}
-              onClick={() => handleFeatureClick(feature.title)}
+              onClick={feature.action}
               className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 cursor-pointer overflow-hidden group"
             >
               <div className={`${feature.bgColor} p-6 group-hover:bg-opacity-80 transition-all duration-300`}>
@@ -180,18 +196,28 @@ const Home: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="flex flex-wrap gap-4">
             <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg transition-all duration-300 flex items-center space-x-2">
+              onClick={() => setShowBooking(true)}
               <Calendar className="w-5 h-5" />
               <span>Book Now</span>
             </button>
 
             <button className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-lg transition-all duration-300 flex items-center space-x-2">
+              onClick={() => setShowEmergency(true)}
               <AlertTriangle className="w-5 h-5" />
               <span>Emergency</span>
             </button>
 
             <button className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:shadow-lg transition-all duration-300 flex items-center space-x-2">
-              <Heart className="w-5 h-5" />
-              <span>Health Check</span>
+              onClick={() => setShowReports(true)}
+              <FileText className="w-5 h-5" />
+              <span>Reports</span>
+            </button>
+
+            <button 
+              onClick={() => setShowChatbot(true)}
+              className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:shadow-lg transition-all duration-300 flex items-center space-x-2">
+              <MessageCircle className="w-5 h-5" />
+              <span>HealthBot</span>
             </button>
           </div>
         </div>
@@ -200,6 +226,7 @@ const Home: React.FC = () => {
       {/* Floating Chatbot Button */}
       <div className="fixed bottom-6 right-6">
         <button className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-4 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 group">
+          onClick={() => setShowChatbot(true)}
           <MessageCircle className="w-6 h-6 group-hover:animate-pulse" />
         </button>
         <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
@@ -207,10 +234,25 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Symptom Scanner Modal */}
-      <SymptomScanner
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
+      {/* Modals */}
+      <ChatbotModal
+        isOpen={showChatbot}
+        onClose={() => setShowChatbot(false)}
+      />
+      
+      <BookAppointmentModal
+        isOpen={showBooking}
+        onClose={() => setShowBooking(false)}
+      />
+      
+      <HealthReportsModal
+        isOpen={showReports}
+        onClose={() => setShowReports(false)}
+      />
+      
+      <EmergencyModal
+        isOpen={showEmergency}
+        onClose={() => setShowEmergency(false)}
       />
     </div>
   );
