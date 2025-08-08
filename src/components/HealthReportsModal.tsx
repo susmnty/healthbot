@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Upload, Download, Calendar, Loader } from 'lucide-react';
+import { X, FileText, Upload, Download, Calendar, Loader, AlertTriangle } from 'lucide-react';
 import { supabase, type HealthReport } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,6 +7,8 @@ interface HealthReportsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const MAX_FILE_SIZE_MB = 10;
 
 const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -17,6 +19,9 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
   const [reportType, setReportType] = useState('');
   const [reportDate, setReportDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -28,6 +33,7 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
     if (!user) return;
     
     setLoading(true);
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('health_reports')
@@ -35,18 +41,41 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch reports.');
+      }
       setReports(data || []);
     } catch (error) {
       console.error('Error fetching reports:', error);
+      setFetchError('Failed to load your reports. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!reportType) newErrors.reportType = 'Report type is required.';
+    if (!reportDate) newErrors.reportDate = 'Report date is required.';
+    if (!selectedFile) newErrors.selectedFile = 'A file is required.';
+    if (selectedFile && selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      newErrors.selectedFile = `File size must be under ${MAX_FILE_SIZE_MB}MB.`;
+    }
+    return newErrors;
+  };
+
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !reportType || !reportDate || !user) return;
+    setFormMessage(null);
+    setErrors({});
+    
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (!user || !selectedFile) return;
 
     setUploading(true);
     try {
@@ -54,11 +83,13 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('health-reports')
         .upload(fileName, selectedFile);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        throw new Error(uploadError.message || 'File upload failed.');
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -78,19 +109,26 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
         .from('health_reports')
         .insert([reportData]);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        throw new Error(dbError.message || 'Database insertion failed.');
+      }
 
-      // Reset form and refresh reports
+      setFormMessage({ type: 'success', text: 'Report uploaded successfully!' });
+      
+      // Reset form fields
       setSelectedFile(null);
       setReportType('');
       setReportDate('');
       setNotes('');
+      // Manually reset file input
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
       fetchReports();
       
-      alert('Report uploaded successfully!');
     } catch (error) {
       console.error('Error uploading report:', error);
-      alert('Failed to upload report. Please try again.');
+      setFormMessage({ type: 'error', text: (error as Error).message });
     } finally {
       setUploading(false);
     }
@@ -123,6 +161,7 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
@@ -131,6 +170,16 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
         </div>
 
         <div className="p-6">
+          {formMessage && (
+            <div className={`p-3 rounded-lg text-center mb-4 ${
+              formMessage.type === 'success'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {formMessage.text}
+            </div>
+          )}
+
           {/* Upload Form */}
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -145,8 +194,13 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
                   </label>
                   <select
                     value={reportType}
-                    onChange={(e) => setReportType(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setReportType(e.target.value);
+                      if (errors.reportType) setErrors(prev => ({ ...prev, reportType: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                      errors.reportType ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   >
                     <option value="">Select report type</option>
@@ -159,6 +213,7 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
                     <option value="Prescription">Prescription</option>
                     <option value="Other">Other</option>
                   </select>
+                  {errors.reportType && <p className="mt-1 text-sm text-red-600">{errors.reportType}</p>}
                 </div>
 
                 <div>
@@ -168,10 +223,16 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
                   <input
                     type="date"
                     value={reportDate}
-                    onChange={(e) => setReportDate(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setReportDate(e.target.value);
+                      if (errors.reportDate) setErrors(prev => ({ ...prev, reportDate: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                      errors.reportDate ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {errors.reportDate && <p className="mt-1 text-sm text-red-600">{errors.reportDate}</p>}
                 </div>
               </div>
 
@@ -180,15 +241,22 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
                   Upload File *
                 </label>
                 <input
+                  id="file-upload"
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setSelectedFile(e.target.files?.[0] || null);
+                    if (errors.selectedFile) setErrors(prev => ({ ...prev, selectedFile: '' }));
+                  }}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                    errors.selectedFile ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   required
                 />
                 <p className="mt-1 text-sm text-gray-600">
-                  Supported formats: PDF, JPG, PNG (Max 10MB)
+                  Supported formats: PDF, JPG, PNG (Max {MAX_FILE_SIZE_MB}MB)
                 </p>
+                {errors.selectedFile && <p className="mt-1 text-sm text-red-600">{errors.selectedFile}</p>}
               </div>
 
               <div>
@@ -206,7 +274,7 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
 
               <button
                 type="submit"
-                disabled={uploading || !selectedFile || !reportType || !reportDate}
+                disabled={uploading || !selectedFile || !reportType || !reportDate || !!errors.selectedFile}
                 className="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center space-x-2"
               >
                 {uploading && <Loader className="w-4 h-4 animate-spin" />}
@@ -222,6 +290,11 @@ const HealthReportsModal: React.FC<HealthReportsModalProps> = ({ isOpen, onClose
               <div className="flex items-center justify-center py-8">
                 <Loader className="w-6 h-6 animate-spin text-green-600" />
                 <span className="ml-2 text-gray-600">Loading reports...</span>
+              </div>
+            ) : fetchError ? (
+              <div className="flex items-center justify-center py-8 text-red-600">
+                <AlertTriangle className="w-6 h-6" />
+                <span className="ml-2">{fetchError}</span>
               </div>
             ) : reports.length === 0 ? (
               <div className="text-center py-8 text-gray-500">

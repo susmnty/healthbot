@@ -9,8 +9,7 @@ import {
   MessageCircle,
   FileText,
   Stethoscope,
-  Phone,
-  User
+  User,
 } from 'lucide-react';
 
 import ChatbotModal from '../components/ChatbotModal';
@@ -27,63 +26,71 @@ const Home: React.FC = () => {
   const [showReports, setShowReports] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
 
-  if (!user) return <div className="text-center mt-20 text-gray-600">Loading...</div>;
-
+  if (!user) {
+    return <div className="text-center mt-20 text-gray-600">{t('loading')}...</div>;
+  }
+  
   const features = [
     {
+      key: 'book-appointment',
       icon: Calendar,
       title: t('bookAppointment'),
-      description: 'Schedule appointments with certified doctors',
+      description: t('descriptionBookAppointment'),
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600',
-      action: () => setShowBooking(true)
+      action: () => setShowBooking(true),
     },
     {
+      key: 'consult-doctor',
       icon: Stethoscope,
-      title: 'Consult a Doctor',
-      description: 'Get professional medical consultation online',
+      title: t('consultDoctorTitle'),
+      description: t('descriptionConsultDoctor'),
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'bg-indigo-50',
       textColor: 'text-indigo-600',
-      action: () => setShowChatbot(true)
+      action: () => setShowChatbot(true),
     },
     {
+      key: 'emergency-sos',
       icon: AlertTriangle,
       title: t('emergencySOS'),
-      description: 'Emergency contacts and immediate assistance',
+      description: t('descriptionEmergency'),
       color: 'from-red-500 to-red-600',
       bgColor: 'bg-red-50',
       textColor: 'text-red-600',
-      action: () => setShowEmergency(true)
+      action: () => setShowEmergency(true),
     },
     {
+      key: 'health-reports',
       icon: FileText,
-      title: 'Health Reports',
-      description: 'Upload and manage your medical documents',
+      title: t('healthReports'),
+      description: t('descriptionHealthReports'),
       color: 'from-pink-500 to-pink-600',
       bgColor: 'bg-pink-50',
       textColor: 'text-pink-600',
-      action: () => setShowReports(true)
+      action: () => setShowReports(true),
     },
     {
+      key: 'healthbot-support',
       icon: MessageCircle,
-      title: 'HealthBot Support',
-      description: 'AI-powered health assistant for instant help',
+      title: t('healthBotSupportTitle'),
+      description: t('descriptionHealthBotSupport'),
       color: 'from-teal-500 to-teal-600',
       bgColor: 'bg-teal-50',
       textColor: 'text-teal-600',
-      action: () => setShowChatbot(true)
+      action: () => setShowChatbot(true),
     },
     {
+      key: 'health-checkup',
       icon: Heart,
       title: t('healthCheckup'),
-      description: 'Monitor your vital signs and health metrics',
+      description: t('descriptionHealthCheckup'),
       color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
       textColor: 'text-purple-600',
-      action: () => alert('Health checkup feature coming soon!')
-    }
+      action: () => alert(t('comingSoon')),
+    },
   ];
 
   return (
@@ -103,9 +110,9 @@ const Home: React.FC = () => {
 
       {/* Features Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((feature, index) => (
+        {features.map((feature) => (
           <div
-            key={index}
+            key={feature.key}
             onClick={feature.action}
             className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 cursor-pointer overflow-hidden group"
           >

@@ -27,44 +27,54 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Sample doctors data - in real app, this would come from Supabase
+  // useEffect to fetch doctors from Supabase or use mock data
   useEffect(() => {
     if (isOpen) {
-      setDoctors([
-        {
-          name: 'Dr. Sarah Johnson',
-          specialization: 'Cardiology',
-          location: 'City Hospital, New York',
-          available_times: ['09:00', '10:00', '11:00', '14:00', '15:00'],
-          rating: 4.8,
-          experience_years: 15
-        },
-        {
-          name: 'Dr. Michael Chen',
-          specialization: 'Dermatology',
-          location: 'Skin Care Clinic, Los Angeles',
-          available_times: ['10:00', '11:00', '13:00', '16:00', '17:00'],
-          rating: 4.9,
-          experience_years: 12
-        },
-        {
-          name: 'Dr. Emily Rodriguez',
-          specialization: 'Pediatrics',
-          location: 'Children\'s Hospital, Chicago',
-          available_times: ['08:00', '09:00', '10:00', '14:00', '15:00'],
-          rating: 4.7,
-          experience_years: 18
-        },
-        {
-          name: 'Dr. David Kumar',
-          specialization: 'Orthopedics',
-          location: 'Bone & Joint Center, Houston',
-          available_times: ['09:00', '11:00', '13:00', '15:00', '16:00'],
-          rating: 4.6,
-          experience_years: 20
-        }
-      ]);
+      const fetchDoctors = async () => {
+        setLoading(true);
+        // This is where you would fetch data from your Supabase 'doctors' table
+        // For now, we use your sample data
+        setDoctors([
+          {
+            name: 'Dr. Sarah Johnson',
+            specialization: 'Cardiology',
+            location: 'City Hospital, New York',
+            available_times: ['09:00', '10:00', '11:00', '14:00', '15:00'],
+            rating: 4.8,
+            experience_years: 15
+          },
+          {
+            name: 'Dr. Michael Chen',
+            specialization: 'Dermatology',
+            location: 'Skin Care Clinic, Los Angeles',
+            available_times: ['10:00', '11:00', '13:00', '16:00', '17:00'],
+            rating: 4.9,
+            experience_years: 12
+          },
+          {
+            name: 'Dr. Emily Rodriguez',
+            specialization: 'Pediatrics',
+            location: 'Children\'s Hospital, Chicago',
+            available_times: ['08:00', '09:00', '10:00', '14:00', '15:00'],
+            rating: 4.7,
+            experience_years: 18
+          },
+          {
+            name: 'Dr. David Kumar',
+            specialization: 'Orthopedics',
+            location: 'Bone & Joint Center, Houston',
+            available_times: ['09:00', '11:00', '13:00', '15:00', '16:00'],
+            rating: 4.6,
+            experience_years: 20
+          }
+        ]);
+        setLoading(false);
+      };
+      
+      fetchDoctors();
+      setFormMessage(null); // Reset messages on open
     }
   }, [isOpen]);
 
@@ -92,17 +102,33 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+      const filesArray = Array.from(e.target.files);
+      if (filesArray.length > 5) {
+        setErrors(prev => ({ ...prev, files: 'You can only upload a maximum of 5 files.' }));
+        setSelectedFiles([]);
+      } else {
+        setSelectedFiles(filesArray);
+        setErrors(prev => ({ ...prev, files: '' }));
+      }
     }
   };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.patient_name.trim()) newErrors.patient_name = 'Name is required';
+    if (!formData.patient_name.trim()) newErrors.patient_name = 'Full Name is required';
     if (!formData.patient_age) newErrors.patient_age = 'Age is required';
-    if (!formData.patient_email.trim()) newErrors.patient_email = 'Email is required';
-    if (!formData.patient_phone.trim()) newErrors.patient_phone = 'Phone is required';
+    if (!formData.patient_age || parseInt(formData.patient_age) < 1 || parseInt(formData.patient_age) > 120) {
+      newErrors.patient_age = 'Please enter a valid age (1-120)';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.patient_email.trim() || !emailRegex.test(formData.patient_email)) {
+      newErrors.patient_email = 'A valid Email is required';
+    }
+    const phoneRegex = /^\+?[1-9]\d{9,14}$/; // Simple phone number validation
+    if (!formData.patient_phone.trim() || !phoneRegex.test(formData.patient_phone)) {
+      newErrors.patient_phone = 'A valid Phone number is required';
+    }
     if (!formData.doctor_name) newErrors.doctor_name = 'Please select a doctor';
     if (!formData.appointment_date) newErrors.appointment_date = 'Date is required';
     if (!formData.appointment_time) newErrors.appointment_time = 'Time is required';
@@ -113,13 +139,16 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
   const uploadFiles = async (files: File[]): Promise<string[]> => {
     const uploadPromises = files.map(async (file) => {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileName = `${user?.id || 'anonymous'}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('medical-reports')
         .upload(fileName, file);
 
-      if (error) throw error;
+      if (error) {
+        console.error('File upload failed:', error);
+        throw new Error('File upload failed. Please try again.');
+      }
       
       const { data: { publicUrl } } = supabase.storage
         .from('medical-reports')
@@ -133,6 +162,7 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormMessage(null);
     
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
@@ -154,7 +184,7 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
         patient_age: parseInt(formData.patient_age),
         previous_reports: fileUrls,
         status: 'pending',
-        user_id: user?.id
+        user_id: user?.id || null // Ensure user_id is handled for non-authenticated users
       };
 
       const { error } = await supabase
@@ -164,26 +194,28 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
       if (error) throw error;
 
       // Success
-      alert('Appointment booked successfully!');
-      onClose();
+      setFormMessage({ type: 'success', text: 'Appointment booked successfully!' });
       
-      // Reset form
-      setFormData({
-        patient_name: user?.name || '',
-        patient_age: '',
-        patient_email: user?.email || '',
-        patient_phone: user?.phone || '',
-        doctor_name: '',
-        doctor_specialization: '',
-        location: '',
-        appointment_date: '',
-        appointment_time: '',
-      });
-      setSelectedFiles([]);
+      // Reset form after a delay to allow message to be seen
+      setTimeout(() => {
+        onClose();
+        setFormData({
+          patient_name: user?.name || '',
+          patient_age: '',
+          patient_email: user?.email || '',
+          patient_phone: user?.phone || '',
+          doctor_name: '',
+          doctor_specialization: '',
+          location: '',
+          appointment_date: '',
+          appointment_time: '',
+        });
+        setSelectedFiles([]);
+      }, 1500);
       
     } catch (error) {
       console.error('Error booking appointment:', error);
-      alert('Failed to book appointment. Please try again.');
+      setFormMessage({ type: 'error', text: 'Failed to book appointment. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -208,6 +240,7 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
@@ -217,6 +250,17 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Form Messages */}
+          {formMessage && (
+            <div className={`p-3 rounded-lg text-center ${
+              formMessage.type === 'success'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {formMessage.text}
+            </div>
+          )}
+
           {/* Patient Details */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -289,7 +333,7 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.patient_phone ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="Enter phone number"
+                  placeholder="e.g., +15551234567"
                 />
                 {errors.patient_phone && <p className="mt-1 text-sm text-red-600">{errors.patient_phone}</p>}
               </div>
@@ -413,6 +457,7 @@ const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOpen, onC
               <p className="mt-2 text-sm text-gray-600">
                 Upload previous medical reports (PDF, JPG, PNG). Max 5 files.
               </p>
+              {errors.files && <p className="mt-1 text-sm text-red-600">{errors.files}</p>}
               {selectedFiles.length > 0 && (
                 <div className="mt-2">
                   <p className="text-sm font-medium text-gray-700">Selected files:</p>

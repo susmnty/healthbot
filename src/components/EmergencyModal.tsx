@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Phone, MapPin, Clock, User } from 'lucide-react';
+import { X, AlertTriangle, Phone, MapPin, Clock, User, Loader } from 'lucide-react';
 
 interface EmergencyModalProps {
   isOpen: boolean;
@@ -13,6 +13,11 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const emergencyContacts = [
     { name: 'Emergency Services', number: '911', type: 'General Emergency' },
     { name: 'Poison Control', number: '1-800-222-1222', type: 'Poisoning' },
@@ -24,11 +29,68 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
     window.open(`tel:${number}`, '_self');
   };
 
+  const handleGetLocation = () => {
+    setIsLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation(`Lat: ${latitude}, Long: ${longitude}`);
+          setIsLoading(false);
+        },
+        (error) => {
+          console.error(error);
+          setLocation('Unable to retrieve location');
+          setIsLoading(false);
+        }
+      );
+    } else {
+      setLocation('Geolocation is not supported by this browser.');
+      setIsLoading(false);
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!emergencyType) newErrors.emergencyType = 'Please select an emergency type.';
+    if (!location.trim()) newErrors.location = 'Location is required.';
+    if (!description.trim()) newErrors.description = 'A description is required.';
+    return newErrors;
+  };
+
   const handleSubmitEmergency = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would send emergency data to services
-    alert('Emergency request submitted! Help is on the way.');
-    onClose();
+    setFormMessage(null);
+    
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    // Simulate an API call to send data to a backend service
+    new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Here you would send a POST request with the form data
+        // For demonstration, we'll simulate a success
+        if (Math.random() > 0.1) { // 90% chance of success
+          resolve('Emergency report sent successfully!');
+        } else {
+          reject('Failed to submit emergency report. Please call 911 directly.');
+        }
+      }, 2000);
+    })
+    .then(message => {
+      setFormMessage({ type: 'success', text: message as string });
+      setTimeout(onClose, 2500); // Close modal after success
+    })
+    .catch(error => {
+      setFormMessage({ type: 'error', text: error as string });
+    })
+    .finally(() => {
+      setIsSubmitting(false);
+    });
   };
 
   if (!isOpen) return null;
@@ -56,6 +118,17 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-6">
+          {/* Form Messages */}
+          {formMessage && (
+            <div className={`p-3 rounded-lg text-center mb-4 ${
+              formMessage.type === 'success'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {formMessage.text}
+            </div>
+          )}
+
           {/* Quick Emergency Contacts */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -94,8 +167,13 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
                 </label>
                 <select
                   value={emergencyType}
-                  onChange={(e) => setEmergencyType(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  onChange={(e) => {
+                    setEmergencyType(e.target.value);
+                    if (errors.emergencyType) setErrors(prev => ({ ...prev, emergencyType: '' }));
+                  }}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                    errors.emergencyType ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   required
                 >
                   <option value="">Select emergency type</option>
@@ -106,23 +184,40 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
                   <option value="mental-health">Mental Health Crisis</option>
                   <option value="other">Other</option>
                 </select>
+                {errors.emergencyType && <p className="mt-1 text-sm text-red-600">{errors.emergencyType}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Current Location *
                 </label>
-                <div className="relative">
-                  <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="Enter your current location"
-                    required
-                  />
+                <div className="flex space-x-2">
+                  <div className="relative flex-1">
+                    <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => {
+                        setLocation(e.target.value);
+                        if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                      }}
+                      className={`w-full pl-12 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                        errors.location ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter your current location"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={isLoading}
+                    className="flex items-center justify-center px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <MapPin className="w-5 h-5" />}
+                  </button>
                 </div>
+                {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
               </div>
 
               <div>
@@ -131,12 +226,18 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
                 </label>
                 <textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (errors.description) setErrors(prev => ({ ...prev, description: '' }));
+                  }}
                   rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                    errors.description ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Describe the emergency situation..."
                   required
                 />
+                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -183,10 +284,20 @@ const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                  disabled={isSubmitting}
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Submit Emergency</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Submit Emergency</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
