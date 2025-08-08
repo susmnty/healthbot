@@ -1,0 +1,8 @@
+flask
+flask-cors
+PyPDF2
+python-dotenv
+langchain==0.0.354
+langchain-openai==0.0.5
+chromadb
+openai<2,>=1.10.0
